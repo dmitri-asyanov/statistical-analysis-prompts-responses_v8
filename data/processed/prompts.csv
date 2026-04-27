@@ -1,0 +1,1 @@
+prompt_id,category,category_label,length_level,has_context,has_constraints,role,role_text,context_text,constraints_text,template_text,variable_values,expected_response_type,prompt_text,char_count,word_count,sentence_count,has_question_form,technical_terms_count,structure_score,specificity_score,created_at

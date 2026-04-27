@@ -1,0 +1,19 @@
+﻿answer_id,prompt_id,category,model_name,length_level,expected_response_type,task_score,formal_total_score,final_score,char_count,word_count,text_word_count,code_line_count,code_ratio,text_ratio,has_code,has_function_def,has_assert,has_pytest,has_unittest,has_example,has_complexity,has_step_by_step,has_error_explanation,has_fixed_code,prompt_text,answer_text
+6aa322fb-8c4f-42ba-b73c-07bcb90c1344,505bb67b-a42c-4a59-a87d-6f870a2904ff,testing,gigachat,short,test_cases,0.23,,,161,19,19,0,0.0,1.0,0,0,0,0,0,0,0,0,0,0,"Составь тест-кейсы для функции:
+def get_first_item(items):
+ return items[0]
+
+Ответ должен быть кратким.","- Пустой список: []
+- Список с одним элементом: [1]
+- Целочисленный список: [5, amburgers]
+- Строковый список: [""apple"", ""banana""]
+- Списковой список: [[1], [2]]"
+aa9c1933-fa6f-49db-aa8b-753fcc53f86e,a50dada8-b81c-41b5-b92b-4966a1f31b4a,algorithm_explanation,yandexgpt-lite,short,text,0.49,,,293,35,35,0,0.0,1.0,0,0,0,0,0,0,0,0,0,0,"Контекст: Объяснение нужно студенту, который только изучает алгоритмы.
+
+Кратко опиши, как работает алгоритм Кнута — Морриса — Пратта.
+
+Ограничения:
+- Не используй внешние зависимости.
+- При необходимости приведи короткий пример.
+
+Ответ должен быть кратким.","Алгоритм Кнута — Морриса — Пратта ищет вхождение одного слова в другое, используя префикс-функцию, которая для каждого суффикса указывает его наибольший собственный префикс, совпадающий с суффиксом. Это позволяет избежать повторного сравнения символов, эффективно сокращая количество проверок."
