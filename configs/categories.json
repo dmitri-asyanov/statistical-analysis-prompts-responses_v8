@@ -1,0 +1,16 @@
+{
+  "categories": {
+    "code_generation": {
+      "label": "Генерация кода"
+    },
+    "bug_fixing": {
+      "label": "Исправление ошибок"
+    },
+    "algorithm_explanation": {
+      "label": "Объяснение алгоритма"
+    },
+    "testing": {
+      "label": "Тестирование"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+pandas
+numpy
+requests
+python-dotenv
+scipy
+statsmodels
+scikit-learn
+matplotlib
+nltk
+openpyxl
+dotenv

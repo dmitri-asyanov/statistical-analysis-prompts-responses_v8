@@ -1,0 +1,238 @@
+{
+  "roles": {
+    "none": "",
+    "python_developer": "Ты Python-разработчик.",
+    "qa_engineer": "Ты QA-инженер.",
+    "computer_science_teacher": "Ты преподаватель информатики."
+  },
+  "contexts": {
+    "code_generation": [
+      "Это часть backend-сервиса.",
+      "Это учебная задача для начинающего разработчика.",
+      "Это утилита для автоматизации обработки данных."
+    ],
+    "bug_fixing": [
+      "Код используется в небольшом Python-проекте.",
+      "Это фрагмент учебного примера с ошибкой.",
+      "Этот код является частью внутреннего инструмента."
+    ],
+    "algorithm_explanation": [
+      "Объяснение нужно студенту, который только изучает алгоритмы.",
+      "Нужно краткое, но понятное объяснение для технического собеседования.",
+      "Объяснение требуется для учебного конспекта."
+    ],
+    "testing": [
+      "Речь идёт о модуле на Python.",
+      "Это учебная задача по тестированию.",
+      "Нужно подготовить проверку для небольшой функции."
+    ]
+  },
+  "constraints": {
+    "common": [
+      "Используй только стандартную библиотеку Python.",
+      "Ответ должен быть понятен начинающему специалисту.",
+      "Не используй внешние зависимости."
+    ],
+    "code_generation": [
+      "Добавь комментарии к ключевым частям решения.",
+      "Избегай избыточно сложных конструкций."
+    ],
+    "bug_fixing": [
+      "Сохрани исходную логику программы, исправив только ошибку.",
+      "Объясни причину ошибки перед исправленным кодом."
+    ],
+    "algorithm_explanation": [
+      "Укажи временную сложность алгоритма.",
+      "При необходимости приведи короткий пример."
+    ],
+    "testing": [
+      "Раздели тесты на позитивные и негативные.",
+      "Добавь хотя бы один граничный случай."
+    ]
+  },
+  "formats": {
+    "short": "Ответ должен быть кратким.",
+    "medium": "Ответ должен быть средней подробности.",
+    "long": "Ответ должен быть подробным и структурированным."
+  },
+  "categories": {
+    "code_generation": {
+      "templates": {
+        "short": [
+          {
+            "text": "Напиши функцию на Python, которая {task}.",
+            "expected_response_type": "code"
+          },
+          {
+            "text": "Реализуй на Python решение задачи: {task}.",
+            "expected_response_type": "code"
+          }
+        ],
+        "medium": [
+          {
+            "text": "Напиши функцию на Python, которая {task}. Кратко поясни решение.",
+            "expected_response_type": "code_and_text"
+          },
+          {
+            "text": "Реализуй на Python решение задачи: {task}. Добавь краткое объяснение логики.",
+            "expected_response_type": "code_and_text"
+          }
+        ],
+        "long": [
+          {
+            "text": "Напиши функцию на Python, которая {task}. Подробно объясни решение и прокомментируй ключевые части кода.",
+            "expected_response_type": "code_and_text"
+          },
+          {
+            "text": "Реализуй на Python решение задачи: {task}. Добавь пошаговое объяснение и комментарии в коде.",
+            "expected_response_type": "code_and_text"
+          }
+        ]
+      },
+      "variables": {
+        "task": [
+          "сортирует список чисел по возрастанию",
+          "находит максимальный элемент в списке",
+          "подсчитывает количество слов в строке",
+          "проверяет, является ли строка палиндромом",
+          "объединяет два словаря",
+          "удаляет дубликаты из списка с сохранением порядка",
+          "считывает JSON-файл и возвращает его содержимое",
+          "группирует список чисел на чётные и нечётные"
+        ]
+      }
+    },
+    "bug_fixing": {
+      "templates": {
+        "short": [
+          {
+            "text": "Найди и исправь ошибку в коде:\n{code}",
+            "expected_response_type": "code"
+          },
+          {
+            "text": "Исправь ошибку в следующем коде:\n{code}",
+            "expected_response_type": "code"
+          }
+        ],
+        "medium": [
+          {
+            "text": "Найди и исправь ошибку в коде. Кратко объясни причину ошибки:\n{code}",
+            "expected_response_type": "code_and_text"
+          },
+          {
+            "text": "Исправь ошибку в следующем коде и поясни, что было не так:\n{code}",
+            "expected_response_type": "code_and_text"
+          }
+        ],
+        "long": [
+          {
+            "text": "Найди и исправь ошибку в коде. Подробно объясни причину проблемы и покажи исправленную версию:\n{code}",
+            "expected_response_type": "code_and_text"
+          },
+          {
+            "text": "Проанализируй код, укажи ошибку, объясни причину и предложи исправленный вариант:\n{code}",
+            "expected_response_type": "code_and_text"
+          }
+        ]
+      },
+      "variables": {
+        "code": [
+          "def add_one(x):\n    return x + '1'",
+          "numbers = [1, 2, 3]\nprint(numbers[3])",
+          "for i in range(5)\n    print(i)",
+          "value = int('abc')",
+          "def divide(a, b):\n    return a / b\n\nprint(divide(10, 0))",
+          "data = {'a': 1}\nprint(data['b'])"
+        ]
+      }
+    },
+    "algorithm_explanation": {
+      "templates": {
+        "short": [
+          {
+            "text": "Объясни алгоритм {algorithm}.",
+            "expected_response_type": "text"
+          },
+          {
+            "text": "Кратко опиши, как работает {algorithm}.",
+            "expected_response_type": "text"
+          }
+        ],
+        "medium": [
+          {
+            "text": "Объясни алгоритм {algorithm} простыми словами и укажи его сложность.",
+            "expected_response_type": "structured_text"
+          },
+          {
+            "text": "Опиши принцип работы алгоритма {algorithm} и его временную сложность.",
+            "expected_response_type": "structured_text"
+          }
+        ],
+        "long": [
+          {
+            "text": "Подробно объясни алгоритм {algorithm}, опиши его принцип работы, временную сложность и приведи короткий пример.",
+            "expected_response_type": "structured_text"
+          },
+          {
+            "text": "Объясни алгоритм {algorithm} простыми словами, затем укажи сложность и покажи небольшой пример работы.",
+            "expected_response_type": "structured_text"
+          }
+        ]
+      },
+      "variables": {
+        "algorithm": [
+          "быстрая сортировка",
+          "сортировка слиянием",
+          "бинарный поиск",
+          "поиск в ширину",
+          "поиск в глубину",
+          "алгоритм Дейкстры",
+          "алгоритм Кнута — Морриса — Пратта"
+        ]
+      }
+    },
+    "testing": {
+      "templates": {
+        "short": [
+          {
+            "text": "Напиши тесты для следующего кода:\n{code}",
+            "expected_response_type": "tests"
+          },
+          {
+            "text": "Составь тест-кейсы для функции:\n{code}",
+            "expected_response_type": "test_cases"
+          }
+        ],
+        "medium": [
+          {
+            "text": "Напиши unit-тесты для следующего кода и кратко поясни, что проверяет каждый тест:\n{code}",
+            "expected_response_type": "tests"
+          },
+          {
+            "text": "Составь позитивные и негативные тест-кейсы для функции:\n{code}",
+            "expected_response_type": "test_cases"
+          }
+        ],
+        "long": [
+          {
+            "text": "Напиши unit-тесты для следующего кода. Раздели их на позитивные, негативные и граничные случаи, а также кратко поясни каждый тест:\n{code}",
+            "expected_response_type": "tests"
+          },
+          {
+            "text": "Составь полный набор тест-кейсов для функции, включая позитивные, негативные и граничные сценарии:\n{code}",
+            "expected_response_type": "test_cases"
+          }
+        ]
+      },
+      "variables": {
+        "code": [
+          "def is_even(n):\n    return n % 2 == 0",
+          "def divide(a, b):\n    return a / b",
+          "def normalize_name(name):\n    return name.strip().title()",
+          "def get_first_item(items):\n    return items[0]",
+          "def merge_dicts(a, b):\n    result = a.copy()\n    result.update(b)\n    return result"
+        ]
+      }
+    }
+  }
+}
