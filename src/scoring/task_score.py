@@ -7,9 +7,11 @@ from typing import Any
 import pandas as pd
 
 
+# Определение путей от корня проекта
 BASE_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT_PATH = BASE_DIR / "data" / "processed" / "answers.csv"
 DEFAULT_OUTPUT_PATH = BASE_DIR / "data" / "processed" / "answers.csv"
+DEFAULT_WEIGHTS_PATH = BASE_DIR / "configs" / "scoring_weights.json"
 
 
 ERROR_RESPONSE_PATTERNS = [
@@ -104,6 +106,15 @@ BOUNDARY_TEST_WORDS = [
 ]
 
 
+def load_weights(weights_path: Path) -> dict:
+    if not weights_path.exists():
+        print(f"Внимание: Файл весов не найден по пути {weights_path}. Будут использованы дефолтные веса.")
+        return {}
+    with open(weights_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return data.get("task_score", {})
+
+
 def normalize_text(value: Any) -> str:
     if pd.isna(value):
         return ""
@@ -172,10 +183,6 @@ def get_length_level(row: pd.Series) -> str:
 
 
 def is_error_response(text: str) -> bool:
-    """
-    Техническая ошибка сбора ответа.
-    Важно: traceback внутри объяснения bug_fixing не считается ошибкой API.
-    """
     text = normalize_text(text)
     if not text:
         return True
@@ -276,10 +283,6 @@ def compact_code_text(text: str) -> str:
 
 
 def answer_changes_prompt_code(row: pd.Series, text: str) -> bool:
-    """
-    Признак для bug_fixing: ответ содержит код и отличается от ошибочного кода в промпте.
-    Особенно важен для коротких code-only ответов без слов "исправлено".
-    """
     prompt = get_prompt_text(row)
     answer_compact = compact_code_text(text)
     prompt_compact = compact_code_text(prompt)
@@ -324,20 +327,17 @@ def has_boundary_case(text: str) -> bool:
     return contains_any(text, BOUNDARY_TEST_WORDS)
 
 
-def length_saturation_penalty(row: pd.Series, score: float) -> float:
-    """
-    Снижает массовое насыщение оценок до 1.0.
-    Короткий ответ может быть хорошим, но максимальный балл дается только при достаточных признаках выполнения задачи.
-    """
+def length_saturation_penalty(row: pd.Series, score: float, weights: dict) -> float:
+    w = weights.get("saturation_penalties", {})
     length = get_length_level(row)
     word_count = max(to_int(row.get("word_count", 0)), to_int(row.get("text_word_count", 0)))
     expected = get_expected_response_type(row)
 
     if length == "short" and expected in {"code", "text", "test_cases"}:
-        return min(score, 0.92)
+        return min(score, w.get("short_length_cap", 0.92))
 
     if length in {"medium", "long"} and word_count < 25 and expected not in {"code"}:
-        return min(score, 0.85)
+        return min(score, w.get("medium_long_low_words_cap", 0.85))
 
     return score
 
@@ -366,18 +366,12 @@ def has_fixed_code(row: pd.Series, text: str) -> bool:
 
 
 def answer_has_known_bugfix(row: pd.Series, text: str) -> bool:
-    """
-    Более строгая проверка исправления для текущего набора учебных задач.
-    Нужна, чтобы ответ не получал максимум только за слова "ошибка" и наличие кода.
-    """
     prompt = get_prompt_text(row).lower()
     answer = normalize_text(text).lower()
 
-    # 1. def add_one(x): return x + '1'
     if "return x + '1'" in prompt or 'return x + "1"' in prompt:
         return bool(re.search(r"return\s+x\s*\+\s*1\b", answer))
 
-    # 2. numbers = [1, 2, 3]; print(numbers[3])
     if "numbers = [1, 2, 3]" in prompt and "numbers[3]" in prompt:
         return (
             "numbers[2]" in answer
@@ -386,17 +380,14 @@ def answer_has_known_bugfix(row: pd.Series, text: str) -> bool:
             or "len(numbers)-1" in answer
         )
 
-    # 3. for i in range(5) без двоеточия
     if "for i in range(5)" in prompt and "print(i)" in prompt:
         return "for i in range(5):" in answer
 
-    # 4. value = int('abc')
     if "value = int('abc')" in prompt or 'value = int("abc")' in prompt:
         if "try:" in answer and "except" in answer:
             return True
         return not ("int('abc')" in answer or 'int("abc")' in answer) and "int(" in answer
 
-    # 5. divide(a, b), деление на ноль
     if "def divide(a, b)" in prompt and "divide(10, 0)" in prompt:
         return (
             "b == 0" in answer
@@ -405,7 +396,6 @@ def answer_has_known_bugfix(row: pd.Series, text: str) -> bool:
             or "делени" in answer and "ноль" in answer
         )
 
-    # 6. data['b'] при словаре {'a': 1}
     if "data = {'a': 1}" in prompt and "data['b']" in prompt:
         return (
             ".get(" in answer
@@ -418,10 +408,6 @@ def answer_has_known_bugfix(row: pd.Series, text: str) -> bool:
 
 
 def answer_keeps_original_bug(row: pd.Series, text: str) -> bool:
-    """
-    Ищет случаи, когда ответ фактически оставил исходную ошибку.
-    Это не стопроцентная проверка, но она хорошо ловит явные ложные максимумы.
-    """
     prompt = get_prompt_text(row).lower()
     answer = normalize_text(text).lower()
 
@@ -439,8 +425,6 @@ def answer_keeps_original_bug(row: pd.Series, text: str) -> bool:
 
     for fragment in bug_fragments:
         if fragment in prompt and fragment in answer:
-            # Для data['b'] и divide исходный фрагмент может упоминаться в объяснении,
-            # поэтому штрафуем только если нет явного исправления.
             if not answer_has_known_bugfix(row, text):
                 return True
 
@@ -471,7 +455,8 @@ def prompt_requires_boundary(row: pd.Series) -> bool:
     return contains_any(prompt, ["гранич", "краев"])
 
 
-def score_code_generation(row: pd.Series) -> float:
+def score_code_generation(row: pd.Series, weights: dict) -> float:
+    w = weights.get("code_generation", {})
     text = get_answer_text(row)
     score = 0.0
 
@@ -484,40 +469,40 @@ def score_code_generation(row: pd.Series) -> float:
     explanation_ok = has_explanation_text(row, text)
 
     if code_present:
-        score += 0.24
+        score += w.get("code_present", 0.24)
 
     if function_present:
-        score += 0.22
+        score += w.get("function_present", 0.22)
 
     if code_substantial:
-        score += 0.18
+        score += w.get("code_substantial", 0.18)
 
     if has_relevance(row):
-        score += 0.14
+        score += w.get("relevance", 0.14)
 
     if explanation_required(row):
         if explanation_ok:
-            score += 0.10
+            score += w.get("expl_req", 0.10)
     else:
-        score += 0.06
+        score += w.get("expl_not_req", 0.06)
 
     if has_example(row, text) or has_step_by_step(row, text):
-        score += 0.04
+        score += w.get("example_or_step", 0.04)
 
     if code_present or code_substantial:
-        score += 0.04
+        score += w.get("code_bonus", 0.04)
 
-    # Для rule-based оценки максимум лучше оставлять редким.
-    # Хорошая генерация кода получает 0.88-0.94, а не автоматически 1.0.
+    caps = w.get("caps", {})
     if code_present and function_present and code_substantial and explanation_ok and has_relevance(row):
-        score = cap_score(score, 0.94)
+        score = cap_score(score, caps.get("perfect", 0.94))
     else:
-        score = cap_score(score, 0.88)
+        score = cap_score(score, caps.get("default", 0.88))
 
-    return clamp_score(length_saturation_penalty(row, score))
+    return clamp_score(length_saturation_penalty(row, score, weights))
 
 
-def score_bug_fixing(row: pd.Series) -> float:
+def score_bug_fixing(row: pd.Series, weights: dict) -> float:
+    w = weights.get("bug_fixing", {})
     text = get_answer_text(row)
     score = 0.0
 
@@ -532,62 +517,61 @@ def score_bug_fixing(row: pd.Series) -> float:
     explanation_ok = has_explanation_text(row, text)
 
     if code_present:
-        score += 0.20
+        score += w.get("code_present", 0.20)
 
     if known_fix:
-        score += 0.30
+        score += w.get("known_fix", 0.30)
     elif has_fixed_code(row, text) or changed_code:
-        score += 0.18
+        score += w.get("changed_or_fixed_code", 0.18)
 
     if error_explained:
-        score += 0.16
+        score += w.get("error_explained", 0.16)
 
     if contains_any(text, ERROR_WORDS):
-        score += 0.08
+        score += w.get("error_words", 0.08)
 
     if has_code_substance(row, text) or has_function_def(row, text):
-        score += 0.10
+        score += w.get("code_substance", 0.10)
 
     if explanation_required(row):
         if explanation_ok:
-            score += 0.10
+            score += w.get("expl_req", 0.10)
     else:
         if code_present and (known_fix or changed_code):
-            score += 0.08
+            score += w.get("expl_not_req_code", 0.08)
         else:
-            score += 0.04
+            score += w.get("expl_not_req_no_code", 0.04)
 
     if has_relevance(row):
-        score += 0.04
+        score += w.get("relevance", 0.04)
 
     if code_present or error_explained:
-        score += 0.02
+        score += w.get("code_or_expl_bonus", 0.02)
 
-    # Явно не исправленный код не должен получать высокий балл.
+    caps = w.get("caps", {})
     if keeps_bug:
-        score = cap_score(score, 0.55)
+        score = cap_score(score, caps.get("keeps_bug", 0.55))
 
-    # Code-only исправления могут быть хорошими, но без объяснения не должны уходить в максимум.
     expected = get_expected_response_type(row)
     if expected == "code":
         if known_fix:
-            score = cap_score(score, 0.84)
+            score = cap_score(score, caps.get("code_only_known", 0.84))
         else:
-            score = cap_score(score, 0.72)
+            score = cap_score(score, caps.get("code_only", 0.72))
 
-    # Для code_and_text максимум даем только при явном исправлении + объяснении.
     if expected == "code_and_text":
         if known_fix and error_explained and explanation_ok:
-            score = cap_score(score, 0.96)
+            score = cap_score(score, caps.get("code_text_perfect", 0.96))
         elif known_fix and explanation_ok:
-            score = cap_score(score, 0.90)
+            score = cap_score(score, caps.get("code_text_known", 0.90))
         else:
-            score = cap_score(score, 0.82)
+            score = cap_score(score, caps.get("code_text_default", 0.82))
 
-    return clamp_score(length_saturation_penalty(row, score))
+    return clamp_score(length_saturation_penalty(row, score, weights))
 
 
-def score_algorithm_explanation(row: pd.Series) -> float:
+def score_algorithm_explanation(row: pd.Series, weights: dict) -> float:
+    w = weights.get("algorithm_explanation", {})
     text = get_answer_text(row)
     score = 0.0
 
@@ -601,48 +585,49 @@ def score_algorithm_explanation(row: pd.Series) -> float:
     example_ok = has_example(row, text)
 
     if contains_any(text_lower, ALGORITHM_WORDS):
-        score += 0.24
+        score += w.get("algo_words", 0.24)
 
     if has_step_by_step(row, text):
-        score += 0.17
+        score += w.get("step_by_step", 0.17)
 
     if complexity_required:
         if complexity_ok:
-            score += 0.20
+            score += w.get("complexity_req_ok", 0.20)
     else:
-        score += 0.10 if complexity_ok else 0.04
+        score += w.get("complexity_not_req_ok", 0.10) if complexity_ok else w.get("complexity_not_req_fail", 0.04)
 
     if example_required:
         if example_ok:
-            score += 0.14
+            score += w.get("example_req_ok", 0.14)
     else:
-        score += 0.07 if example_ok else 0.03
+        score += w.get("example_not_req_ok", 0.07) if example_ok else w.get("example_not_req_fail", 0.03)
 
     if to_int(row.get("word_count", 0)) >= 20 or to_int(row.get("text_word_count", 0)) >= 20:
-        score += 0.10
+        score += w.get("word_count_bonus", 0.10)
 
     if not has_code(row, text) or to_float(row.get("code_ratio", 0.0)) <= 0.4:
-        score += 0.06
+        score += w.get("text_ratio_bonus", 0.06)
 
     if has_relevance(row):
-        score += 0.05
+        score += w.get("relevance", 0.05)
 
-    # Для кратких текстовых объяснений не завышаем оценку только за длину/структуру.
+    caps = w.get("caps", {})
     if complexity_required and not complexity_ok:
-        score = cap_score(score, 0.78)
+        score = cap_score(score, caps.get("missing_req_complexity", 0.78))
 
     if example_required and not example_ok:
-        score = cap_score(score, 0.82)
+        score = cap_score(score, caps.get("missing_req_example", 0.82))
 
     if complexity_ok and (example_ok or not example_required) and has_relevance(row):
-        score = cap_score(score, 0.94)
+        score = cap_score(score, caps.get("perfect", 0.94))
     else:
-        score = cap_score(score, 0.88)
+        score = cap_score(score, caps.get("default", 0.88))
 
-    return clamp_score(length_saturation_penalty(row, score))
+    return clamp_score(length_saturation_penalty(row, score, weights))
 
 
-def score_testing(row: pd.Series) -> float:
+def score_testing(row: pd.Series, weights: dict) -> float:
+    w = weights.get("testing", {})
     text = get_answer_text(row)
     score = 0.0
 
@@ -659,94 +644,98 @@ def score_testing(row: pd.Series) -> float:
     boundary_ok = has_boundary_case(text)
 
     if contains_any(text, TEST_WORDS) or bool_feature(row, "has_assert") or test_case_format:
-        score += 0.18
+        score += w.get("test_indicators", 0.18)
 
     if expected == "test_cases":
+        cases_w = w.get("expected_test_cases", {})
         if test_case_format:
-            score += 0.24
+            score += cases_w.get("format_bonus", 0.24)
         elif assert_or_framework:
-            score += 0.16
+            score += cases_w.get("assert_bonus", 0.16)
     else:
+        tests_w = w.get("expected_tests", {})
         if assert_or_framework:
-            score += 0.26
+            score += tests_w.get("assert_bonus", 0.26)
         elif test_case_format:
-            score += 0.14
+            score += tests_w.get("format_bonus", 0.14)
 
     if positive_ok:
-        score += 0.12
+        score += w.get("positive_ok", 0.12)
     elif not prompt_requires_positive_negative(row) and (assert_or_framework or test_case_format):
-        score += 0.05
+        score += w.get("positive_bonus", 0.05)
 
     if negative_ok:
-        score += 0.14
+        score += w.get("negative_ok", 0.14)
     elif not prompt_requires_positive_negative(row) and (assert_or_framework or test_case_format):
-        score += 0.05
+        score += w.get("negative_bonus", 0.05)
 
     if boundary_ok:
-        score += 0.14
+        score += w.get("boundary_ok", 0.14)
     elif not prompt_requires_boundary(row) and (assert_or_framework or test_case_format):
-        score += 0.05
+        score += w.get("boundary_bonus", 0.05)
 
     if has_code(row, text) or assert_or_framework:
-        score += 0.06
+        score += w.get("code_or_assert_bonus", 0.06)
 
     if explanation_required(row):
         if has_explanation_text(row, text):
-            score += 0.05
+            score += w.get("expl_req", 0.05)
     else:
-        score += 0.03
+        score += w.get("expl_not_req", 0.03)
 
     if has_relevance(row):
-        score += 0.03
+        score += w.get("relevance", 0.03)
 
-    # Разные потолки для исполняемых unit-тестов и текстовых тест-кейсов.
+    caps = w.get("caps", {})
     if expected == "tests":
         if assert_or_framework and positive_ok and negative_ok and boundary_ok:
-            score = cap_score(score, 0.96)
+            score = cap_score(score, caps.get("tests_perfect", 0.96))
         elif assert_or_framework:
-            score = cap_score(score, 0.90)
+            score = cap_score(score, caps.get("tests_assert", 0.90))
         else:
-            score = cap_score(score, 0.82)
+            score = cap_score(score, caps.get("tests_default", 0.82))
 
     elif expected == "test_cases":
         if test_case_count >= 3 and positive_ok and negative_ok and boundary_ok:
-            score = cap_score(score, 0.94)
+            score = cap_score(score, caps.get("cases_perfect", 0.94))
         elif test_case_count >= 2:
-            score = cap_score(score, 0.86)
+            score = cap_score(score, caps.get("cases_good", 0.86))
         else:
-            score = cap_score(score, 0.68)
+            score = cap_score(score, caps.get("cases_default", 0.68))
 
     else:
-        score = cap_score(score, 0.90)
+        score = cap_score(score, caps.get("default", 0.90))
 
-    return clamp_score(length_saturation_penalty(row, score))
+    return clamp_score(length_saturation_penalty(row, score, weights))
 
 
-def calculate_task_score(row: pd.Series) -> float:
+def calculate_task_score(row: pd.Series, weights: dict) -> float:
     category = normalize_lower(row.get("category", ""))
 
     if category == "code_generation":
-        return score_code_generation(row)
+        return score_code_generation(row, weights)
 
     if category == "bug_fixing":
-        return score_bug_fixing(row)
+        return score_bug_fixing(row, weights)
 
     if category == "algorithm_explanation":
-        return score_algorithm_explanation(row)
+        return score_algorithm_explanation(row, weights)
 
     if category == "testing":
-        return score_testing(row)
+        return score_testing(row, weights)
 
     return 0.0
 
 
-def apply_task_scores(input_path: str | Path, output_path: str | Path) -> Path:
+def apply_task_scores(input_path: str | Path, output_path: str | Path, weights_path: str | Path) -> Path:
     input_path = Path(input_path)
     output_path = Path(output_path)
+    weights_path = Path(weights_path)
 
     if not input_path.exists():
         raise FileNotFoundError(f"Файл не найден: {input_path}")
 
+    weights = load_weights(weights_path)
     df = pd.read_csv(input_path)
 
     required_columns = {"answer_id", "prompt_id", "category", "answer_text"}
@@ -759,16 +748,17 @@ def apply_task_scores(input_path: str | Path, output_path: str | Path) -> Path:
         print("Файл пустой. Колонка task_score будет создана, строки отсутствуют.")
         df["task_score"] = pd.Series(dtype="float64")
     else:
-        df["task_score"] = df.apply(calculate_task_score, axis=1)
+        df["task_score"] = df.apply(lambda row: calculate_task_score(row, weights), axis=1)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False, encoding="utf-8-sig")
 
     print(f"Task score рассчитан: {output_path}")
+    print(f"Использованы веса из: {weights_path}")
     print(f"Строк обработано: {len(df)}")
 
     if not df.empty:
-        print("Средний task_score по категориям:")
+        print("\nСредний task_score по категориям:")
         print(df.groupby("category")["task_score"].mean().round(4).to_string())
 
         if "model_name" in df.columns:
@@ -793,12 +783,18 @@ def main() -> None:
         default=str(DEFAULT_OUTPUT_PATH),
         help="Путь к выходному answers.csv",
     )
+    parser.add_argument(
+        "--weights",
+        default=str(DEFAULT_WEIGHTS_PATH),
+        help="Путь к JSON с весами (scoring_weights.json)",
+    )
 
     args = parser.parse_args()
 
     apply_task_scores(
         input_path=args.input,
         output_path=args.output,
+        weights_path=args.weights,
     )
 
 

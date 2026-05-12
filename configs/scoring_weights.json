@@ -1,0 +1,104 @@
+{
+  "final_score": {
+    "task_score_weight": 0.25,
+    "formal_score_weight": 0.15,
+    "judge_score_weight": 0.60
+  },
+  "judge_score": {
+    "components_weight": 0.2
+  },
+  "formal_score": {
+    "total_weights": {
+      "formal_clarity_score": 0.22,
+      "formal_structure_score": 0.22,
+      "formal_utility_score": 0.22,
+      "formal_relevance_score": 0.22,
+      "length_match_score": 0.12
+    },
+    "length_match": {
+      "code_expected_ranges": {"short": [8, 110], "medium": [45, 280], "long": [120, 800]},
+      "text_expected_ranges": {"short": [15, 100], "medium": [70, 240], "long": [160, 700]},
+      "ratios": [[0.75, 0.8], [0.5, 0.6], [0.25, 0.4], [0.0, 0.2]]
+    },
+    "clarity": {
+      "size_ranges": [[30, 0.20], [10, 0.12], [5, 0.05]],
+      "sentence_count_ranges": [[3, 0.20], [1, 0.10]],
+      "avg_len": {"optimal": [8, 28, 0.25], "acceptable": [5, 40, 0.15], "min": [0, 999, 0.05]},
+      "readability_ranges": [[0.7, 0.20], [0.4, 0.10], [0.001, 0.05]],
+      "lexical": {"optimal": [0.25, 0.85, 0.10], "min": [0, 999, 0.05]},
+      "code_no_words_bonus": 0.18,
+      "length_match_bonus": 0.05
+    },
+    "structure": {
+      "paragraph_ranges": [[2, 0.20], [1, 0.10]],
+      "list_ranges": [[2, 0.20], [1, 0.15]],
+      "sentence_ranges": [[3, 0.15], [1, 0.08]],
+      "structure_score_multiplier": 0.25,
+      "code_expected": {"block_bonus": 0.20, "line_ranges": [[3, 0.12], [2, 0.10], [1, 0.05]]},
+      "structured_text_bonus": 0.20,
+      "text_bonus": 0.10
+    },
+    "utility": {
+      "size_ranges": [[40, 0.12], [15, 0.08], [5, 0.03]],
+      "terms_ranges": [[5, 0.15], [1, 0.08]],
+      "list_bonus": 0.10,
+      "code_expected_bonus": 0.20,
+      "text_expected_bonus": 0.10,
+      "length_match_bonus": 0.08,
+      "category_bonuses": {
+        "code_generation": {"code": 0.15, "func": 0.15, "import": 0.05, "code_and_text_len": 0.10},
+        "bug_fixing": {"fixed": 0.20, "error_expl": 0.15, "code": 0.10},
+        "algorithm_explanation": {"steps": 0.20, "complex": 0.15, "example": 0.10},
+        "testing": {"assert": 0.15, "framework": 0.15, "code": 0.10, "example": 0.05},
+        "default": 0.05
+      }
+    },
+    "relevance": {
+      "overlap_ranges": [[0.5, 0.35], [0.25, 0.25], [0.001, 0.12]],
+      "size_ranges": [[20, 0.18], [5, 0.08], [0.001, 0.03]],
+      "expected_type_bonuses": {"code_family": 0.25, "tests_family": 0.25, "structured_text": 0.25, "text": 0.15, "default": 0.10},
+      "category_bonus": 0.14,
+      "length_match_bonus": 0.08
+    }
+  },
+  "task_score": {
+    "saturation_penalties": {
+      "short_length_cap": 0.92,
+      "medium_long_low_words_cap": 0.85
+    },
+    "code_generation": {
+      "code_present": 0.24, "function_present": 0.22, "code_substantial": 0.18, 
+      "relevance": 0.14, "expl_req": 0.10, "expl_not_req": 0.06, 
+      "example_or_step": 0.04, "code_bonus": 0.04,
+      "caps": {"perfect": 0.94, "default": 0.88}
+    },
+    "bug_fixing": {
+      "code_present": 0.20, "known_fix": 0.30, "changed_or_fixed_code": 0.18, 
+      "error_explained": 0.16, "error_words": 0.08, "code_substance": 0.10, 
+      "expl_req": 0.10, "expl_not_req_code": 0.08, "expl_not_req_no_code": 0.04, 
+      "relevance": 0.04, "code_or_expl_bonus": 0.02,
+      "caps": {"keeps_bug": 0.55, "code_only_known": 0.84, "code_only": 0.72, "code_text_perfect": 0.96, "code_text_known": 0.90, "code_text_default": 0.82}
+    },
+    "algorithm_explanation": {
+      "algo_words": 0.24, "step_by_step": 0.17, 
+      "complexity_req_ok": 0.20, "complexity_not_req_ok": 0.10, "complexity_not_req_fail": 0.04,
+      "example_req_ok": 0.14, "example_not_req_ok": 0.07, "example_not_req_fail": 0.03,
+      "word_count_bonus": 0.10, "text_ratio_bonus": 0.06, "relevance": 0.05,
+      "caps": {"missing_req_complexity": 0.78, "missing_req_example": 0.82, "perfect": 0.94, "default": 0.88}
+    },
+    "testing": {
+      "test_indicators": 0.18,
+      "expected_test_cases": {"format_bonus": 0.24, "assert_bonus": 0.16},
+      "expected_tests": {"assert_bonus": 0.26, "format_bonus": 0.14},
+      "positive_ok": 0.12, "positive_bonus": 0.05,
+      "negative_ok": 0.14, "negative_bonus": 0.05,
+      "boundary_ok": 0.14, "boundary_bonus": 0.05,
+      "code_or_assert_bonus": 0.06,
+      "expl_req": 0.05, "expl_not_req": 0.03, "relevance": 0.03,
+      "caps": {
+        "tests_perfect": 0.96, "tests_assert": 0.90, "tests_default": 0.82,
+        "cases_perfect": 0.94, "cases_good": 0.86, "cases_default": 0.68, "default": 0.90
+      }
+    }
+  }
+}
